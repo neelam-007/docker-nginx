@@ -2,10 +2,15 @@ FROM alpine:3.8
 
 LABEL maintainer="NGINX Docker Maintainers <docker-maint@nginx.com>"
 
-ENV NGINX_VERSION 1.14.2
+ENV NGINX_VERSION 1.10.3
+RUN mkdir /tmp2
+COPY ngx_http_proxy_connect_module /tmp2/ngx_http_proxy_connect_module
+RUN /bin/chmod -R 777 /tmp2/ngx_http_proxy_connect_module
 
 RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 	&& CONFIG="\
+		--add-module=/usr/src/ngx_cache_purge-2.3 \
+		--add-module=/tmp2/ngx_http_proxy_connect_module \
 		--prefix=/etc/nginx \
 		--sbin-path=/usr/sbin/nginx \
 		--modules-path=/usr/lib/nginx/modules \
@@ -67,8 +72,13 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 		gd-dev \
 		geoip-dev \
 		perl-dev \
+		pcre-dev \
 	&& curl -fSL https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
 	&& curl -fSL https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz.asc  -o nginx.tar.gz.asc \
+	&& curl -fSL http://labs.frickle.com/files/ngx_cache_purge-2.3.tar.gz -o ngx_cache_purge-2.3.tar.gz \
+	&& ls -la /tmp2/ngx_http_proxy_connect_module \
+	&& patch -p 1 /tmp2/ngx_http_proxy_connect_module/patch/proxy_connect.patch \
+	&& ls -la /tmp2/ngx_http_proxy_connect_module \
 	&& export GNUPGHOME="$(mktemp -d)" \
 	&& found=''; \
 	for server in \
@@ -85,7 +95,9 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 	&& rm -rf "$GNUPGHOME" nginx.tar.gz.asc \
 	&& mkdir -p /usr/src \
 	&& tar -zxC /usr/src -f nginx.tar.gz \
+	&& tar -zxC /usr/src -f ngx_cache_purge-2.3.tar.gz \
 	&& rm nginx.tar.gz \
+	&& rm ngx_cache_purge-2.3.tar.gz \
 	&& cd /usr/src/nginx-$NGINX_VERSION \
 	&& ./configure $CONFIG --with-debug \
 	&& make -j$(getconf _NPROCESSORS_ONLN) \
